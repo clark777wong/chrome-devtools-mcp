@@ -26,7 +26,9 @@
     "update-lighthouse": "node --experimental-strip-types scripts/update-lighthouse.ts",
     "verify-npm-package": "node scripts/verify-npm-package.mjs",
     "eval": "npm run build && node --experimental-strip-types scripts/eval_gemini.ts",
-    "count-tokens": "node --experimental-strip-types scripts/count_tokens.ts"
+    "count-tokens": "node --experimental-strip-types scripts/count_tokens.ts",
+    "sync-upstream": "node scripts/sync-upstream.mjs",
+    "check-vulnerabilities": "node scripts/check-vulnerabilities.mjs"
   },
   "files": [
     "build/src",

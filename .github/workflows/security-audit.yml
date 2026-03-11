@@ -1,0 +1,104 @@
+name: Security Audit
+
+permissions: read-all
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    - cron: '0 3 * * 0'  # 每周日 3:00 UTC 运行
+
+jobs:
+  security-audit:
+    name: npm Security Audit
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.workflow_dispatch }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          cache: npm
+          node-version-file: '.nvmrc'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        id: audit
+        run: |
+          npm audit --audit-level=moderate --json > audit-results.json || true
+
+      - name: Check for vulnerabilities
+        run: |
+          RESULT=$(node -e "
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('audit-results.json', 'utf8'));
+            const vulns = data.metadata?.vulnerabilities || {};
+            const total = vulns.total || 0;
+            console.log('Total vulnerabilities:', total);
+            console.log('::set-output name=has_vulnerabilities::' + (total > 0 ? 'true' : 'false'));
+            if (total > 0) {
+              console.log('Critical:', vulns.critical || 0);
+              console.log('High:', vulns.high || 0);
+              console.log('Moderate:', vulns.moderate || 0);
+              console.log('Low:', vulns.low || 0);
+              console.log('');
+              console.log('Vulnerabilities found! Please run: npm audit fix');
+              process.exit(1);
+            }
+          ")
+        shell: bash
+
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: audit-results
+          path: audit-results.json
+          retention-days: 7
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: security-audit
+    if: always()
+
+    steps:
+      - name: Download audit results
+        uses: actions/download-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: audit-results
+
+      - name: Display results
+        run: |
+          if [ -f audit-results.json ]; then
+            node -e "
+              const fs = require('fs');
+              const data = JSON.parse(fs.readFileSync('audit-results.json', 'utf8'));
+              const vulns = data.metadata?.vulnerabilities || {};
+              const total = vulns.total || 0;
+              if (total > 0) {
+                console.log('');
+                console.log('⚠️  SECURITY WARNING: Vulnerabilities detected!');
+                console.log('   Total:', total);
+                console.log('   Critical:', vulns.critical || 0);
+                console.log('   High:', vulns.high || 0);
+                console.log('   Moderate:', vulns.moderate || 0);
+                console.log('   Low:', vulns.low || 0);
+                console.log('');
+                console.log('Run \"npm audit fix\" to resolve these issues.');
+                process.exit(1);
+              } else {
+                console.log('');
+                console.log('✅ No vulnerabilities found!');
+              }
+            "
+          else
+            echo "No audit results available"
+          fi

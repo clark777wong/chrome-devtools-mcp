@@ -148,4 +148,22 @@ build/
 
 log.txt
 
+# Local development files (privacy protection)
+local/
+local-*/
+.local.*
+secrets/
+credentials/
+*.env.local
+*.env.*.local
+
+# Token configuration files (security)
+token_config.json
+scripts/token_config.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
 .DS_Store
